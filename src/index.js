@@ -45,8 +45,8 @@ router.get('/api/pending', async (request, env) => {
   });
 });
 
-router.get('/api/approved', async (request, env) => {
-  const pending = await env.kindKV.list({ prefix: 'approved:' });
+router.get('/api/approvedpickup', async (request, env) => {
+  const pending = await env.kindKV.list({ prefix: 'approved:pickup:' });
   const pendingItems = await Promise.all(
     pending.keys.map(async (key) => {
       const value = await env.kindKV.get(key.name);
@@ -99,9 +99,9 @@ async function changeStatusAndHandleError(orderID, env) {
 
   try {
     // Get the values associated with the pending key
-    const values = await env.kindKV.get(pendingKey);
+    const valuesJSON  = await env.kindKV.get(pendingKey);
 
-    if (!values) {
+    if (!valuesJSON ) {
       // If values are not found, return an error response
       return new Response('Item not found', {
         status: 404,
@@ -109,14 +109,31 @@ async function changeStatusAndHandleError(orderID, env) {
       });
     }
 
+    const values = JSON.parse(valuesJSON);
+
+    // Mapbox
+    const address = values[0].clientInfo.address;
+
+    const mapboxResponse = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${address}.json?types=address&access_token=${env.SECRET_KEY}`);
+
+    if (!mapboxResponse.ok) {
+      throw new Error(`Mapbox API error! status: ${mapboxResponse.status}`);
+    }
+
+    const mapboxData = await mapboxResponse.json();
+
+    values[0].mapboxData = mapboxData.features[0].geometry.coordinates;
+
+    const updatedValuesJSON = JSON.stringify(values);
+
     // Create a new key with the approved status and store the values
-    await env.kindKV.put(approvedKey, values);
+    await env.kindKV.put(approvedKey, updatedValuesJSON);
 
     // Delete the old key with the pending status
     await env.kindKV.delete(pendingKey);
 
     // Respond with a success message
-    return new Response('Item approved successfully', {
+    return new Response(`Item approved successfully ${values[0].mapboxData}`, {
       status: 200,
       headers: responseHeaders,
     });
@@ -124,7 +141,7 @@ async function changeStatusAndHandleError(orderID, env) {
     console.error('Error:', error);
 
     // Handle other errors, e.g., internal server error
-    return new Response('Internal Server Error', {
+    return new Response(`Internal Server Error`, {
       status: 500,
       headers: responseHeaders,
     });
