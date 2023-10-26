@@ -34,6 +34,25 @@ router.post('/api/approve/:orderId', async (request, env) => {
   return response;
 });
 
+router.get('/api/list/:orderId', async (request, env) => {
+  const { orderId } = request.params;
+  const listedKeys = await env.kindKV.list();
+
+  for (const key of listedKeys.keys) {
+    if (key.name.includes(orderId)) {
+      const item = await env.kindKV.get(key.name);
+      return new Response(JSON.stringify(item), {
+        status: 200,
+        headers: responseHeaders,
+      });
+    }
+  }
+  return new Response('Not found', {
+    status: 404,
+    headers: responseHeaders,
+  });
+});
+
 // Define a route for GET requests to get all pending items
 router.get('/api/pending', async (request, env) => {
   const pending = await env.kindKV.list({ prefix: 'pending:' });
