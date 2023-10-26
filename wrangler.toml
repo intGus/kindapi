@@ -2,6 +2,13 @@ name = "kindapi"
 main = "src/index.js"
 compatibility_date = "2023-10-02"
 
+account_id = "15d1f0e1924c506b951d32c3cafa79cd"
+workers_dev = true
+
 kv_namespaces = [
-  { binding = "kindKV", id = "19aeb0bef7d84fb6b4729fb4daa7d4da" }
+  { binding = "kindKV", id = "19aeb0bef7d84fb6b4729fb4daa7d4da", preview_id = "19aeb0bef7d84fb6b4729fb4daa7d4da" }
+]
+
+r2_buckets = [
+  { binding = "kindBucket", bucket_name = "kindapi", preview_bucket_name = "kindapi" }
 ]

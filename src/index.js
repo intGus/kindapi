@@ -1,10 +1,15 @@
-import { Router } from 'itty-router';
+import { Router, createCors } from 'itty-router';
+
+const {preflight, corsify} = createCors({
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origins: ['http://localhost:3000'],
+});
 
 const router = Router();
 const responseHeaders = new Headers({
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+  'Access-Control-Allow-Headers': '*',
   'Access-Control-Max-Age': '86400',
 });
 
@@ -60,33 +65,37 @@ router.get('/api/approvedpickup', async (request, env) => {
   });
 });
 
-// Define a route for other requests (OPTIONS)
-router.all('*', (request) => {
-  
+// Define a route for PUT requests to upload an image
 
-  if (request.method === 'OPTIONS') {
-    // Handle preflight request
-    return new Response(null, {
-      headers: responseHeaders,
-    });
-  } else {
-    return new Response('Not Found', {
-      status: 404,
-      headers: responseHeaders,
-    });
+router.put('/api/upload', async (request, env) => {
+  const key = generateUniqueKey();
+  const response = {
+    key: key,
+    Location: `https://pub-4023840de9f449af9854f0b74e95bbf3.r2.dev/${key}`
   }
+
+  await env.kindBucket.put(key, request.body);
+  return new Response(JSON.stringify(response), {
+    status: 200,
+    headers: responseHeaders,
+  });
 });
+
+// Define a route for other requests (OPTIONS)
+router.all('*', preflight);
+
+router.all('*', () => new Response('Not found', { status: 404 }))
 
 export default {
   async fetch(request, env) {
-    const allowed = ['kindapi.gusweb.workers.dev', 'kindapi.gusweb.dev'];
-    const origin = new URL(request.url);
+    // const allowed = ['kindapi.gusweb.workers.dev', 'kindapi.gusweb.dev'];
+    // const origin = new URL(request.url);
 
-    if (!allowed.includes(origin.hostname)) {
-      return new Response(`${origin.hostname} not allowed`, {
-        status: 403,
-      });
-    }
+    // if (!allowed.includes(origin.hostname)) {
+    //   return new Response(`${origin.hostname} not allowed`, {
+    //     status: 403,
+    //   });
+    // }
 
     return router.handle(request, env);
   },
@@ -146,4 +155,12 @@ async function changeStatusAndHandleError(orderID, env) {
       headers: responseHeaders,
     });
   }
+}
+
+function generateUniqueKey() {
+  // Generate a unique key here, e.g., using Date.now() and a random string
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(7);
+
+  return `${timestamp}_${randomString}`;
 }
